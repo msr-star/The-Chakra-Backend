@@ -1,0 +1,16 @@
+target/
+.mvn/
+mvnw
+mvnw.cmd
+.git/
+.gitignore
+Dockerfile
+*.log
+*.txt
+.idea/
+.vscode/
+.settings/
+.project/
+.classpath/
+node_modules/
+frontend/
