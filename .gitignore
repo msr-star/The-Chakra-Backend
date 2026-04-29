@@ -1,0 +1,39 @@
+# Compiled class files and build output
+target/
+*.class
+*.jar
+*.war
+
+# Maven wrapper jar
+.mvn/wrapper/maven-wrapper.jar
+
+# Environment / Secrets
+.env
+.env.properties
+*.env
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.classpath
+.factorypath
+.project
+.settings/
+nbproject/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+*.txt
+!README.txt
+
+# Docker (keep Dockerfile, ignore runtime files)
+docker-compose.override.yml
