@@ -34,14 +34,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/google")
-    public ResponseEntity<AuthResponseDto> googleLogin(@RequestBody GoogleLoginRequestDto request) {
-        AuthResponseDto response = authService.googleLogin(request);
-        systemAuditService.logAction("LOGIN_SUCCESS", "User authenticated via Google", response.getUser().getEmail(),
-                response.getUser().getEmail());
-        return ResponseEntity.ok(response);
-    }
-
     @PostMapping("/verify-admin-login")
     public ResponseEntity<AuthResponseDto> verifyAdminLogin(@RequestBody VerifyOtpRequestDto request) {
         AuthResponseDto response = authService.verifyAdminLogin(request);

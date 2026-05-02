@@ -18,15 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Collections;
 import java.util.Optional;
 import java.util.Random;
-import java.util.UUID;
-
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 
 @Slf4j
 @Service
@@ -41,9 +34,6 @@ public class AuthService {
         private final AuthenticationManager authenticationManager;
         private final UserMapper userMapper;
         private final RefreshTokenService refreshTokenService;
-
-        @org.springframework.beans.factory.annotation.Value("${google.client.id}")
-        private String googleClientId;
 
         private String generateOtp() {
                 return String.format("%06d", new Random().nextInt(999999));
@@ -288,71 +278,6 @@ public class AuthService {
                         log.debug("[DEBUG] No DB Token found for Input: {} and Type: {}", request.getOtp(),
                                         VerificationToken.TokenType.FORGOT_PASSWORD);
                         throw new IllegalArgumentException("Invalid OTP");
-                }
-        }
-
-        @Transactional
-        public AuthResponseDto googleLogin(GoogleLoginRequestDto request) {
-                try {
-                        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
-                                        .setAudience(Collections.singletonList(googleClientId))
-                                        .build();
-
-                        GoogleIdToken idToken = verifier.verify(request.getCredential());
-                        if (idToken != null) {
-                                GoogleIdToken.Payload payload = idToken.getPayload();
-                                String email = payload.getEmail();
-                                String name = (String) payload.get("name");
-                                
-                                Optional<User> existingUserOpt = userRepository.findByEmail(email);
-                                User user;
-
-                                if (existingUserOpt.isPresent()) {
-                                        user = existingUserOpt.get();
-                                } else {
-                                        Role role = Role.STUDENT;
-                                        if (request.getAdminCode() != null && !request.getAdminCode().trim().isEmpty()) {
-                                                Optional<VerificationToken> tokenOpt = verificationTokenRepository
-                                                        .findByEmailAndTokenType(email, VerificationToken.TokenType.ADMIN_REGISTRATION);
-                                                if (tokenOpt.isPresent()) {
-                                                        VerificationToken token = tokenOpt.get();
-                                                        if (!token.getToken().equals(request.getAdminCode())) {
-                                                                throw new IllegalArgumentException("Invalid Admin Code");
-                                                        }
-                                                        if (token.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.of("UTC")))) {
-                                                                throw new IllegalArgumentException("Expired Admin Code");
-                                                        }
-                                                        role = Role.ADMIN;
-                                                        verificationTokenRepository.delete(token);
-                                                } else {
-                                                        throw new IllegalArgumentException("Invalid Admin Code");
-                                                }
-                                        }
-
-                                        user = User.builder()
-                                                        .name(name)
-                                                        .email(email)
-                                                        .password(passwordEncoder.encode(UUID.randomUUID().toString()))
-                                                        .role(role)
-                                                        .build();
-                                        userRepository.save(user);
-                                }
-
-                                String jwtToken = jwtUtils.generateToken(user.getEmail());
-                                RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
-
-                                return AuthResponseDto.builder()
-                                                .token(jwtToken)
-                                                .refreshToken(refreshToken.getToken())
-                                                .user(userMapper.toDto(user))
-                                                .build();
-
-                        } else {
-                                throw new IllegalArgumentException("Invalid Google ID token.");
-                        }
-                } catch (Exception e) {
-                        log.error("Google Auth Error", e);
-                        throw new IllegalArgumentException("Google authentication failed: " + e.getMessage());
                 }
         }
 
