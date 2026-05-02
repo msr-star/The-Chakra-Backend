@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -23,6 +24,7 @@ public class EmailService {
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
+    @Async
     public void sendEmail(String to, String subject, String body) {
         // Fallback for any pure plain-text usages, though we'll route via HTML wrapper
         // now
@@ -64,6 +66,7 @@ public class EmailService {
                 "</div>";
     }
 
+    @Async
     public void sendAdminApprovalRequest(String candidateEmail, String candidateName) {
         String subject = "AWAITING ROOT DIRECTIVE";
         String approvalLink = frontendUrl + "/root-verify?email=" + candidateEmail;
@@ -91,6 +94,7 @@ public class EmailService {
         sendHtmlEmail("msrohith2007@gmail.com", subject, htmlBody);
     }
 
+    @Async
     public void sendMentorWelcomeEmail(String studentEmail, String studentName, String adminName) {
         String subject = "🎯 You've Been Assigned a Mentor on The Chakra!";
 
