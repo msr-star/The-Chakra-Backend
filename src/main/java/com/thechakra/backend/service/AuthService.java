@@ -312,10 +312,18 @@ public class AuthService {
                                 } else {
                                         Role role = Role.STUDENT;
                                         if (request.getAdminCode() != null && !request.getAdminCode().trim().isEmpty()) {
-                                                Optional<VerificationToken> tokenOpt = verificationTokenRepository.findByToken(request.getAdminCode());
-                                                if (tokenOpt.isPresent() && tokenOpt.get().getTokenType() == VerificationToken.TokenType.ADMIN_ACCESS) {
+                                                Optional<VerificationToken> tokenOpt = verificationTokenRepository
+                                                        .findByEmailAndTokenType(email, VerificationToken.TokenType.ADMIN_REGISTRATION);
+                                                if (tokenOpt.isPresent()) {
+                                                        VerificationToken token = tokenOpt.get();
+                                                        if (!token.getToken().equals(request.getAdminCode())) {
+                                                                throw new IllegalArgumentException("Invalid Admin Code");
+                                                        }
+                                                        if (token.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.of("UTC")))) {
+                                                                throw new IllegalArgumentException("Expired Admin Code");
+                                                        }
                                                         role = Role.ADMIN;
-                                                        verificationTokenRepository.delete(tokenOpt.get());
+                                                        verificationTokenRepository.delete(token);
                                                 } else {
                                                         throw new IllegalArgumentException("Invalid Admin Code");
                                                 }
