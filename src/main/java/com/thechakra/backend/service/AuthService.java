@@ -40,12 +40,28 @@ public class AuthService {
         }
 
         @Transactional
-        public void requestAdminAccess(String name, String email) {
+        public String requestAdminAccess(String name, String email) {
+                // For Demo: Send email to root authority but also generate OTP immediately
                 emailService.sendAdminApprovalRequest(email, name);
+                
+                // Automatically generate the token for the demo display
+                verificationTokenRepository.deleteByEmailAndTokenType(email,
+                                VerificationToken.TokenType.ADMIN_REGISTRATION);
+
+                String otp = generateOtp();
+                VerificationToken token = VerificationToken.builder()
+                                .email(email)
+                                .token(otp)
+                                .tokenType(VerificationToken.TokenType.ADMIN_REGISTRATION)
+                                .expiryDate(LocalDateTime.now(ZoneId.of("UTC")).plusHours(24))
+                                .build();
+                verificationTokenRepository.save(token);
+                
+                return otp;
         }
 
         @Transactional
-        public void generateAdminOtp(RootAdminOtpRequestDto request) {
+        public String generateAdminOtp(RootAdminOtpRequestDto request) {
                 if (!"CHAKRA_ADMIN_777".equals(request.getRootSecret())) {
                         throw new IllegalArgumentException("Invalid Root Secret");
                 }
@@ -64,6 +80,8 @@ public class AuthService {
 
                 emailService.sendEmail(request.getCandidateEmail(), "Your Admin Access Code",
                                 "The Root Authority has approved your request. Your Admin Access Code is: " + otp);
+                
+                return otp;
         }
 
         @Transactional
@@ -156,27 +174,6 @@ public class AuthService {
                 authenticationManager.authenticate(
                                 new UsernamePasswordAuthenticationToken(user.getEmail(), request.getPassword()));
 
-                if (user.getRole() == Role.ADMIN) {
-                        verificationTokenRepository.deleteByEmailAndTokenType(user.getEmail(),
-                                        VerificationToken.TokenType.ADMIN_LOGIN);
-                        String otp = generateOtp();
-                        VerificationToken token = VerificationToken.builder()
-                                        .email(user.getEmail())
-                                        .token(otp)
-                                        .tokenType(VerificationToken.TokenType.ADMIN_LOGIN)
-                                        .expiryDate(LocalDateTime.now(ZoneId.of("UTC")).plusMinutes(30))
-                                        .build();
-                        verificationTokenRepository.save(token);
-
-                        emailService.sendEmail(user.getEmail(), "Admin Login Verification",
-                                        "Your OTP for login is: " + otp);
-
-                        return AuthResponseDto.builder()
-                                        .message("OTP_SENT")
-                                        .user(userMapper.toDto(user))
-                                        .build();
-                }
-
                 String jwtToken = jwtUtils.generateToken(user.getEmail());
                 RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
 
@@ -187,50 +184,10 @@ public class AuthService {
                                 .build();
         }
 
-        @Transactional
-        public AuthResponseDto verifyAdminLogin(VerifyOtpRequestDto request) {
-                // Resolve the identifier (email OR phone number) to the actual user,
-                // because the OTP was stored under the user's real email address.
-                User user = userRepository.findByEmailOrPhoneNumber(request.getEmail(), request.getEmail())
-                                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-                String actualEmail = user.getEmail(); // always the stored email
-
-                Optional<VerificationToken> dbTokenOpt = verificationTokenRepository
-                                .findByEmailAndTokenType(actualEmail, VerificationToken.TokenType.ADMIN_LOGIN);
-
-                if (dbTokenOpt.isPresent()) {
-                        VerificationToken token = dbTokenOpt.get();
-                        log.debug("[DEBUG] Comparing Input: {} with DB Token: {} for Type: {}", request.getOtp(),
-                                        token.getToken(), VerificationToken.TokenType.ADMIN_LOGIN);
-
-                        if (!token.getToken().equals(request.getOtp())) {
-                                throw new IllegalArgumentException("Invalid OTP");
-                        }
-
-                        if (token.getExpiryDate().isBefore(LocalDateTime.now(ZoneId.of("UTC")))) {
-                                throw new IllegalArgumentException("OTP expired");
-                        }
-
-                        verificationTokenRepository.delete(token);
-                } else {
-                        log.debug("[DEBUG] No DB Token found for email: {} and Type: {}", actualEmail,
-                                        VerificationToken.TokenType.ADMIN_LOGIN);
-                        throw new IllegalArgumentException("Invalid OTP");
-                }
-
-                String jwtToken = jwtUtils.generateToken(user.getEmail());
-                RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
-
-                return AuthResponseDto.builder()
-                                .token(jwtToken)
-                                .refreshToken(refreshToken.getToken())
-                                .user(userMapper.toDto(user))
-                                .build();
-        }
 
         @Transactional
-        public void forgotPassword(ForgotPasswordRequestDto request) {
+        public String forgotPassword(ForgotPasswordRequestDto request) {
                 User user = userRepository.findByEmail(request.getEmail())
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
@@ -247,6 +204,8 @@ public class AuthService {
                 verificationTokenRepository.save(token);
 
                 emailService.sendEmail(user.getEmail(), "Password Reset", "Your password reset code is: " + otp);
+                
+                return otp;
         }
 
         @Transactional

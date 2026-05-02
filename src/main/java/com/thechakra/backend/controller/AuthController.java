@@ -34,20 +34,15 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/verify-admin-login")
-    public ResponseEntity<AuthResponseDto> verifyAdminLogin(@RequestBody VerifyOtpRequestDto request) {
-        AuthResponseDto response = authService.verifyAdminLogin(request);
-        systemAuditService.logAction("ADMIN_LOGIN_VERIFIED", "Admin OTP Verified", request.getEmail(),
-                request.getEmail());
-        return ResponseEntity.ok(response);
-    }
-
     @PostMapping("/request-admin-access")
     public ResponseEntity<?> requestAdminAccess(@RequestBody Map<String, String> request) {
-        authService.requestAdminAccess(request.get("name"), request.get("email"));
+        String otp = authService.requestAdminAccess(request.get("name"), request.get("email"));
         systemAuditService.logAction("ADMIN_ACCESS_REQUESTED", "Candidate requested root authority approval",
                 request.get("email"), "ROOT_AUTHORITY");
-        return ResponseEntity.ok(Map.of("message", "Request sent to Root Authority"));
+        return ResponseEntity.ok(Map.of(
+                "message", "Request sent to Root Authority",
+                "demoOtp", otp
+        ));
     }
 
     @PostMapping("/root/generate-admin-otp")
@@ -58,8 +53,11 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequestDto request) {
-        authService.forgotPassword(request);
-        return ResponseEntity.ok(Map.of("message", "OTP sent to email"));
+        String otp = authService.forgotPassword(request);
+        return ResponseEntity.ok(Map.of(
+                "message", "OTP sent to email",
+                "demoOtp", otp
+        ));
     }
 
     @PostMapping("/reset-password")
